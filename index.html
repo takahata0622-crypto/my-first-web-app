@@ -107,6 +107,16 @@
     .result .aux { color: var(--primary); }
     .result.error { color: var(--ng); font-weight: 600; }
     .result .hint { font-size: 0.85rem; color: var(--muted); }
+    .result .full { font-size: 0.9rem; color: var(--muted); margin-top: 6px; }
+    .result .badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      background: #fef3c7;
+      color: #92400e;
+      padding: 2px 8px;
+      border-radius: 999px;
+      margin-top: 8px;
+    }
     details {
       background: var(--card);
       border: 1px solid var(--border);
@@ -119,164 +129,162 @@
       font-weight: 600;
       padding: 14px 0;
     }
-    textarea { font-family: ui-monospace, monospace; min-height: 120px; resize: vertical; }
+    textarea { font-family: ui-monospace, monospace; min-height: 100px; resize: vertical; }
     .help { font-size: 0.82rem; color: var(--muted); margin: 8px 0; }
     .actions { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
     .status { font-size: 0.85rem; margin-top: 8px; min-height: 18px; }
     .status.ok { color: var(--ok); }
-    .count { font-size: 0.8rem; color: var(--muted); }
+    .rule { font-size: 0.88rem; }
+    .rule code { background: #f3f4f6; padding: 1px 5px; border-radius: 4px; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <h1>補助番号 検索アプリ</h1>
-    <p class="sub">番号を入力すると、対応する補助番号を表示します</p>
+    <p class="sub">番号を入力すると、補助番号（チェックディジット）を計算して表示します</p>
 
     <!-- 部屋番号 → 補助番号 -->
     <div class="card">
-      <h2>🏠 部屋番号（3桁）</h2>
-      <label for="roomInput">部屋番号を入力</label>
+      <h2>🏠 部屋番号</h2>
+      <label for="roomInput">部屋番号を入力（3〜4桁）</label>
       <div class="row">
-        <input type="text" id="roomInput" inputmode="numeric" maxlength="3" placeholder="例: 123" autocomplete="off">
-        <button onclick="lookupRoom()">検索</button>
+        <input type="text" id="roomInput" inputmode="numeric" maxlength="4" placeholder="例: 701" autocomplete="off">
+        <button onclick="lookupRoom()">計算</button>
       </div>
       <div class="result" id="roomResult"></div>
     </div>
 
     <!-- ロッカー番号 → 補助番号 -->
     <div class="card">
-      <h2>🔒 ロッカー番号（4桁）</h2>
-      <label for="lockerInput">ロッカー番号を入力</label>
+      <h2>🔒 ロッカー番号</h2>
+      <label for="lockerInput">ロッカー番号を入力（4桁）</label>
       <div class="row">
-        <input type="text" id="lockerInput" inputmode="numeric" maxlength="4" placeholder="例: 1234" autocomplete="off">
-        <button onclick="lookupLocker()">検索</button>
+        <input type="text" id="lockerInput" inputmode="numeric" maxlength="4" placeholder="例: 1037" autocomplete="off">
+        <button onclick="lookupLocker()">計算</button>
       </div>
       <div class="result" id="lockerResult"></div>
     </div>
 
-    <!-- データ登録 -->
-    <details id="dataPanel">
-      <summary>⚙️ 対応データの登録・編集</summary>
+    <!-- 計算ルールの説明 -->
+    <details>
+      <summary>📐 補助番号の計算ルール</summary>
+      <div class="rule">
+        <p>各桁に右から順に <code>×2, ×1, ×2, ×1 …</code> の重みを掛けて合計し、
+        その合計が <b>10の倍数になるように足す数字</b> が補助番号です。</p>
+        <p>例：部屋 <code>701</code><br>
+        7×2 + 0×1 + 1×2 = 16 → あと <b>4</b> で 20 → 補助番号は <b>4</b></p>
+        <p class="help">部屋番号・ロッカー番号どちらも同じルールで計算します。</p>
+      </div>
+    </details>
+
+    <!-- 個別補正 -->
+    <details id="overridePanel">
+      <summary>⚙️ 個別の補正（必要な場合のみ）</summary>
       <p class="help">
-        1行に「番号 補助番号」を入力してください。<br>
-        区切りはスペース・カンマ・タブのいずれでもOK。<br>
-        例：<code>123 4</code> または <code>123,4</code>
+        計算結果と実際の補助番号が違う番号があれば、ここで上書きできます。<br>
+        1行に「番号 補助番号」を入力（スペースかカンマ区切り）。例：<code>1234 7</code><br>
+        登録した番号は計算より優先され、この端末のブラウザに保存されます。
       </p>
-
-      <label for="roomData">部屋番号データ（3桁 → 補助番号）<span class="count" id="roomCount"></span></label>
-      <textarea id="roomData" placeholder="123 4&#10;124 5&#10;125 6"></textarea>
-
-      <label for="lockerData" style="margin-top:14px;">ロッカー番号データ（4桁 → 補助番号）<span class="count" id="lockerCount"></span></label>
-      <textarea id="lockerData" placeholder="1234 5&#10;1235 6&#10;1236 7"></textarea>
-
+      <textarea id="overrideData" placeholder="（通常は空のままでOK）"></textarea>
       <div class="actions">
-        <button onclick="saveData()">保存する</button>
-        <button class="secondary" onclick="loadData()">保存内容を再読込</button>
+        <button onclick="saveOverrides()">保存する</button>
+        <button class="secondary" onclick="loadOverrides()">保存内容を再読込</button>
       </div>
       <div class="status" id="saveStatus"></div>
     </details>
   </div>
 
   <script>
-    const STORAGE_KEY = 'auxNumberData_v1';
-    let roomMap = {};
-    let lockerMap = {};
+    const STORAGE_KEY = 'auxOverrides_v1';
+    let overrides = {};
 
-    // テキストを { 番号: 補助番号 } のオブジェクトに変換
-    function parseData(text) {
+    // 補助番号を計算（右端の桁から重み 2,1,2,1… を掛けて合計し、10の倍数に補う）
+    function computeAux(numStr) {
+      let sum = 0;
+      for (let i = 0; i < numStr.length; i++) {
+        const digit = parseInt(numStr[numStr.length - 1 - i], 10);
+        const weight = (i % 2 === 0) ? 2 : 1; // 右端（1の位）が ×2
+        sum += digit * weight;
+      }
+      return (10 - (sum % 10)) % 10;
+    }
+
+    // 補助番号を取得（個別補正があればそれを優先）
+    function getAux(numStr) {
+      if (overrides[numStr] !== undefined) {
+        return { aux: overrides[numStr], overridden: true };
+      }
+      return { aux: computeAux(numStr), overridden: false };
+    }
+
+    // 結果表示の共通処理
+    function showResult(elId, val, pattern, lengthMsg) {
+      const el = document.getElementById(elId);
+      if (!pattern.test(val)) {
+        el.className = 'result error';
+        el.textContent = lengthMsg;
+        return;
+      }
+      const { aux, overridden } = getAux(val);
+      el.className = 'result';
+      el.innerHTML =
+        `<div class="num">${val}<span class="aux">${aux}</span></div>` +
+        `<div class="hint">補助番号は <b>${aux}</b> です</div>` +
+        `<div class="full">合わせた番号：<b>${val}${aux}</b></div>` +
+        (overridden ? `<div class="badge">個別補正で表示</div>` : '');
+    }
+
+    function lookupRoom() {
+      showResult('roomResult', document.getElementById('roomInput').value.trim(),
+                 /^\d{3,4}$/, '3〜4桁の数字を入力してください');
+    }
+
+    function lookupLocker() {
+      showResult('lockerResult', document.getElementById('lockerInput').value.trim(),
+                 /^\d{4}$/, '4桁の数字を入力してください');
+    }
+
+    // 個別補正テキストをオブジェクトに変換
+    function parseOverrides(text) {
       const map = {};
       text.split('\n').forEach(line => {
         const t = line.trim();
         if (!t) return;
-        // スペース・カンマ・タブで分割
         const parts = t.split(/[\s,]+/);
-        if (parts.length >= 2) {
+        if (parts.length >= 2 && /^\d+$/.test(parts[0])) {
           map[parts[0]] = parts[1];
         }
       });
       return map;
     }
 
-    function objToText(map) {
+    function overridesToText(map) {
       return Object.keys(map).map(k => `${k} ${map[k]}`).join('\n');
     }
 
-    // 保存
-    function saveData() {
-      roomMap = parseData(document.getElementById('roomData').value);
-      lockerMap = parseData(document.getElementById('lockerData').value);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ room: roomMap, locker: lockerMap }));
+    function saveOverrides() {
+      overrides = parseOverrides(document.getElementById('overrideData').value);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides));
       const status = document.getElementById('saveStatus');
-      status.textContent = `✓ 保存しました（部屋 ${Object.keys(roomMap).length}件 / ロッカー ${Object.keys(lockerMap).length}件）`;
+      status.textContent = `✓ 保存しました（${Object.keys(overrides).length}件の補正）`;
       status.className = 'status ok';
-      updateCounts();
       setTimeout(() => { status.textContent = ''; }, 4000);
     }
 
-    // 読込
-    function loadData() {
+    function loadOverrides() {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         try {
-          const data = JSON.parse(raw);
-          roomMap = data.room || {};
-          lockerMap = data.locker || {};
-          document.getElementById('roomData').value = objToText(roomMap);
-          document.getElementById('lockerData').value = objToText(lockerMap);
-        } catch (e) { /* 壊れたデータは無視 */ }
-      }
-      updateCounts();
-    }
-
-    function updateCounts() {
-      document.getElementById('roomCount').textContent = `（${Object.keys(roomMap).length}件）`;
-      document.getElementById('lockerCount').textContent = `（${Object.keys(lockerMap).length}件）`;
-    }
-
-    // 部屋番号検索
-    function lookupRoom() {
-      const val = document.getElementById('roomInput').value.trim();
-      const el = document.getElementById('roomResult');
-      if (!/^\d{3}$/.test(val)) {
-        el.className = 'result error';
-        el.textContent = '3桁の数字を入力してください';
-        return;
-      }
-      if (roomMap[val] !== undefined) {
-        el.className = 'result';
-        el.innerHTML = `<div class="num">${val}<span class="aux">${roomMap[val]}</span></div>` +
-                       `<div class="hint">補助番号は <b>${roomMap[val]}</b> です</div>`;
-      } else {
-        el.className = 'result error';
-        el.innerHTML = `番号「${val}」は登録されていません<div class="hint">⚙️ からデータを登録してください</div>`;
+          overrides = JSON.parse(raw) || {};
+          document.getElementById('overrideData').value = overridesToText(overrides);
+        } catch (e) { overrides = {}; }
       }
     }
 
-    // ロッカー番号検索
-    function lookupLocker() {
-      const val = document.getElementById('lockerInput').value.trim();
-      const el = document.getElementById('lockerResult');
-      if (!/^\d{4}$/.test(val)) {
-        el.className = 'result error';
-        el.textContent = '4桁の数字を入力してください';
-        return;
-      }
-      if (lockerMap[val] !== undefined) {
-        el.className = 'result';
-        el.innerHTML = `<div class="num">${val}<span class="aux">${lockerMap[val]}</span></div>` +
-                       `<div class="hint">補助番号は <b>${lockerMap[val]}</b> です</div>`;
-      } else {
-        el.className = 'result error';
-        el.innerHTML = `番号「${val}」は登録されていません<div class="hint">⚙️ からデータを登録してください</div>`;
-      }
-    }
-
-    // Enterキーで検索
     document.getElementById('roomInput').addEventListener('keydown', e => { if (e.key === 'Enter') lookupRoom(); });
     document.getElementById('lockerInput').addEventListener('keydown', e => { if (e.key === 'Enter') lookupLocker(); });
 
-    // 起動時に保存データを読込
-    loadData();
+    loadOverrides();
   </script>
 </body>
 </html>
