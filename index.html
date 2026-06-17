@@ -1,12 +1,282 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My GitHub Pages Site</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>補助番号 検索アプリ</title>
+  <style>
+    :root {
+      --bg: #f4f6fb;
+      --card: #ffffff;
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --ok: #059669;
+      --ng: #dc2626;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    .wrap {
+      max-width: 560px;
+      margin: 0 auto;
+      padding: 24px 16px 64px;
+    }
+    h1 {
+      font-size: 1.5rem;
+      text-align: center;
+      margin: 8px 0 4px;
+    }
+    .sub {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin: 0 0 24px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .card h2 {
+      font-size: 1.05rem;
+      margin: 0 0 12px;
+    }
+    label {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    input[type="text"], textarea {
+      width: 100%;
+      padding: 12px;
+      font-size: 1.1rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--text);
+    }
+    input[type="text"]:focus, textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+    }
+    .row { display: flex; gap: 10px; }
+    .row input { flex: 1; }
+    button {
+      border: none;
+      border-radius: 8px;
+      background: var(--primary);
+      color: #fff;
+      font-size: 1rem;
+      padding: 12px 18px;
+      cursor: pointer;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    button:hover { background: var(--primary-dark); }
+    button.secondary {
+      background: #eef2ff;
+      color: var(--primary-dark);
+    }
+    button.secondary:hover { background: #e0e7ff; }
+    .result {
+      margin-top: 16px;
+      padding: 16px;
+      border-radius: 8px;
+      background: #f9fafb;
+      text-align: center;
+      min-height: 24px;
+    }
+    .result .num {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+    }
+    .result .aux { color: var(--primary); }
+    .result.error { color: var(--ng); font-weight: 600; }
+    .result .hint { font-size: 0.85rem; color: var(--muted); }
+    details {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 4px 20px;
+      margin-bottom: 20px;
+    }
+    summary {
+      cursor: pointer;
+      font-weight: 600;
+      padding: 14px 0;
+    }
+    textarea { font-family: ui-monospace, monospace; min-height: 120px; resize: vertical; }
+    .help { font-size: 0.82rem; color: var(--muted); margin: 8px 0; }
+    .actions { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+    .status { font-size: 0.85rem; margin-top: 8px; min-height: 18px; }
+    .status.ok { color: var(--ok); }
+    .count { font-size: 0.8rem; color: var(--muted); }
+  </style>
 </head>
 <body>
-    <h1>Welcome to My GitHub Pages Site</h1>
-    <p>This is my first GitHub Pages deployment!</p>
+  <div class="wrap">
+    <h1>補助番号 検索アプリ</h1>
+    <p class="sub">番号を入力すると、対応する補助番号を表示します</p>
+
+    <!-- 部屋番号 → 補助番号 -->
+    <div class="card">
+      <h2>🏠 部屋番号（3桁）</h2>
+      <label for="roomInput">部屋番号を入力</label>
+      <div class="row">
+        <input type="text" id="roomInput" inputmode="numeric" maxlength="3" placeholder="例: 123" autocomplete="off">
+        <button onclick="lookupRoom()">検索</button>
+      </div>
+      <div class="result" id="roomResult"></div>
+    </div>
+
+    <!-- ロッカー番号 → 補助番号 -->
+    <div class="card">
+      <h2>🔒 ロッカー番号（4桁）</h2>
+      <label for="lockerInput">ロッカー番号を入力</label>
+      <div class="row">
+        <input type="text" id="lockerInput" inputmode="numeric" maxlength="4" placeholder="例: 1234" autocomplete="off">
+        <button onclick="lookupLocker()">検索</button>
+      </div>
+      <div class="result" id="lockerResult"></div>
+    </div>
+
+    <!-- データ登録 -->
+    <details id="dataPanel">
+      <summary>⚙️ 対応データの登録・編集</summary>
+      <p class="help">
+        1行に「番号 補助番号」を入力してください。<br>
+        区切りはスペース・カンマ・タブのいずれでもOK。<br>
+        例：<code>123 4</code> または <code>123,4</code>
+      </p>
+
+      <label for="roomData">部屋番号データ（3桁 → 補助番号）<span class="count" id="roomCount"></span></label>
+      <textarea id="roomData" placeholder="123 4&#10;124 5&#10;125 6"></textarea>
+
+      <label for="lockerData" style="margin-top:14px;">ロッカー番号データ（4桁 → 補助番号）<span class="count" id="lockerCount"></span></label>
+      <textarea id="lockerData" placeholder="1234 5&#10;1235 6&#10;1236 7"></textarea>
+
+      <div class="actions">
+        <button onclick="saveData()">保存する</button>
+        <button class="secondary" onclick="loadData()">保存内容を再読込</button>
+      </div>
+      <div class="status" id="saveStatus"></div>
+    </details>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'auxNumberData_v1';
+    let roomMap = {};
+    let lockerMap = {};
+
+    // テキストを { 番号: 補助番号 } のオブジェクトに変換
+    function parseData(text) {
+      const map = {};
+      text.split('\n').forEach(line => {
+        const t = line.trim();
+        if (!t) return;
+        // スペース・カンマ・タブで分割
+        const parts = t.split(/[\s,]+/);
+        if (parts.length >= 2) {
+          map[parts[0]] = parts[1];
+        }
+      });
+      return map;
+    }
+
+    function objToText(map) {
+      return Object.keys(map).map(k => `${k} ${map[k]}`).join('\n');
+    }
+
+    // 保存
+    function saveData() {
+      roomMap = parseData(document.getElementById('roomData').value);
+      lockerMap = parseData(document.getElementById('lockerData').value);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ room: roomMap, locker: lockerMap }));
+      const status = document.getElementById('saveStatus');
+      status.textContent = `✓ 保存しました（部屋 ${Object.keys(roomMap).length}件 / ロッカー ${Object.keys(lockerMap).length}件）`;
+      status.className = 'status ok';
+      updateCounts();
+      setTimeout(() => { status.textContent = ''; }, 4000);
+    }
+
+    // 読込
+    function loadData() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        try {
+          const data = JSON.parse(raw);
+          roomMap = data.room || {};
+          lockerMap = data.locker || {};
+          document.getElementById('roomData').value = objToText(roomMap);
+          document.getElementById('lockerData').value = objToText(lockerMap);
+        } catch (e) { /* 壊れたデータは無視 */ }
+      }
+      updateCounts();
+    }
+
+    function updateCounts() {
+      document.getElementById('roomCount').textContent = `（${Object.keys(roomMap).length}件）`;
+      document.getElementById('lockerCount').textContent = `（${Object.keys(lockerMap).length}件）`;
+    }
+
+    // 部屋番号検索
+    function lookupRoom() {
+      const val = document.getElementById('roomInput').value.trim();
+      const el = document.getElementById('roomResult');
+      if (!/^\d{3}$/.test(val)) {
+        el.className = 'result error';
+        el.textContent = '3桁の数字を入力してください';
+        return;
+      }
+      if (roomMap[val] !== undefined) {
+        el.className = 'result';
+        el.innerHTML = `<div class="num">${val}<span class="aux">${roomMap[val]}</span></div>` +
+                       `<div class="hint">補助番号は <b>${roomMap[val]}</b> です</div>`;
+      } else {
+        el.className = 'result error';
+        el.innerHTML = `番号「${val}」は登録されていません<div class="hint">⚙️ からデータを登録してください</div>`;
+      }
+    }
+
+    // ロッカー番号検索
+    function lookupLocker() {
+      const val = document.getElementById('lockerInput').value.trim();
+      const el = document.getElementById('lockerResult');
+      if (!/^\d{4}$/.test(val)) {
+        el.className = 'result error';
+        el.textContent = '4桁の数字を入力してください';
+        return;
+      }
+      if (lockerMap[val] !== undefined) {
+        el.className = 'result';
+        el.innerHTML = `<div class="num">${val}<span class="aux">${lockerMap[val]}</span></div>` +
+                       `<div class="hint">補助番号は <b>${lockerMap[val]}</b> です</div>`;
+      } else {
+        el.className = 'result error';
+        el.innerHTML = `番号「${val}」は登録されていません<div class="hint">⚙️ からデータを登録してください</div>`;
+      }
+    }
+
+    // Enterキーで検索
+    document.getElementById('roomInput').addEventListener('keydown', e => { if (e.key === 'Enter') lookupRoom(); });
+    document.getElementById('lockerInput').addEventListener('keydown', e => { if (e.key === 'Enter') lookupLocker(); });
+
+    // 起動時に保存データを読込
+    loadData();
+  </script>
 </body>
 </html>
