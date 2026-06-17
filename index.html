@@ -209,6 +209,22 @@
       return (10 - (sum % 10)) % 10;
     }
 
+    // 計算式の文字列を組み立てる（例: "7×2 + 0×1 + 1×2 = 16 → あと4で20"）
+    function buildFormula(numStr) {
+      const terms = [];
+      let sum = 0;
+      for (let j = 0; j < numStr.length; j++) {
+        const digit = parseInt(numStr[j], 10);
+        const i = numStr.length - 1 - j;        // 右端からの位置
+        const weight = (i % 2 === 0) ? 2 : 1;   // 右端（1の位）が ×2
+        terms.push(`${digit}×${weight}`);
+        sum += digit * weight;
+      }
+      const aux = (10 - (sum % 10)) % 10;
+      const next = sum + aux;                   // 直近の10の倍数
+      return `${terms.join(' + ')} = ${sum} → あと<b>${aux}</b>で${next}`;
+    }
+
     // 補助番号を取得（個別補正があればそれを優先）
     function getAux(numStr) {
       if (overrides[numStr] !== undefined) {
@@ -230,8 +246,9 @@
       el.innerHTML =
         `<div class="num">${val}<span class="aux">${aux}</span></div>` +
         `<div class="hint">補助番号は <b>${aux}</b> です</div>` +
-        `<div class="full">合わせた番号：<b>${val}${aux}</b></div>` +
-        (overridden ? `<div class="badge">個別補正で表示</div>` : '');
+        (overridden
+          ? `<div class="badge">個別補正で表示</div>`
+          : `<div class="full">${buildFormula(val)}</div>`);
     }
 
     function lookupRoom() {
